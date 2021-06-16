@@ -12,7 +12,7 @@ const makeInverseMap = (forwardMap) => {
 
 const capitalize = (word) => word[0].toUpperCase() + word.slice(1);
 
-const randBetween = (min, max) => min + Math.floor(Math.random() * (max-min)); 
+const randBetween = (min, max) => min + Math.floor(Math.random() * (max - min));
 
 /***** TwoWayMap *****/
 class TwoWayMap {
@@ -126,7 +126,11 @@ class Card {
   }
 
   get filename() {
-    
+    if (this.rank === CardRanks.getValue("joker")) {
+      return this.colorName + "_" + this.rankName + ".png";
+    }
+
+    return this.rankName + "_" + this.suitName + ".png";
   }
 }
 
@@ -167,9 +171,9 @@ class Deck {
     for (let i = this.deck.length; i > 1; i--) {
       let curSwapIndex = randBetween(0, i);
 
-      if (curSwapIndex > 0) {
-        let temp = this.deck[i-1];
-        this.deck[i-1] = this.deck[curSwapIndex];
+      if (curSwapIndex < i - 1) {
+        let temp = this.deck[i - 1];
+        this.deck[i - 1] = this.deck[curSwapIndex];
         this.deck[curSwapIndex] = temp;
       }
     }
@@ -177,12 +181,18 @@ class Deck {
 }
 
 /***** Test code *****/
+
+const cardDiv = document.getElementById("cards");
+const makeChildCard = (filename) => {
+  let newCardImg = document.createElement("img");
+  newCardImg.src = "images/" + filename;
+  newCardImg.className = "card";
+  cardDiv.appendChild(newCardImg);
+};
+
 let myDeck = new Deck(true);
-// for (let card of myDeck) {
-//   console.log(card.name);
-// }
 myDeck.shuffle();
 for (let card of myDeck) {
   console.log(card.name);
+  makeChildCard(card.filename);
 }
-
