@@ -1,14 +1,18 @@
+"use strict";
+
 /***** Utility Functions *****/
 
 const makeInverseMap = (forwardMap) => {
   let inverseMap = {};
-  for (key in forwardMap) {
+  for (let key in forwardMap) {
     inverseMap[forwardMap[key]] = key;
   }
   return inverseMap;
 };
 
 const capitalize = (word) => word[0].toUpperCase() + word.slice(1);
+
+const randBetween = (min, max) => min + Math.floor(Math.random() * (max-min)); 
 
 /***** TwoWayMap *****/
 class TwoWayMap {
@@ -26,7 +30,7 @@ class TwoWayMap {
   }
 
   *[Symbol.iterator]() {
-    for (key in this.forwardMap) {
+    for (let key in this.forwardMap) {
       yield key;
     }
 
@@ -120,6 +124,10 @@ class Card {
 
     return capitalize(this.rankName) + " of " + capitalize(this.suitName);
   }
+
+  get filename() {
+    
+  }
 }
 
 /***** Decks *****/
@@ -127,15 +135,15 @@ class Deck {
   constructor(jokers = false) {
     this.deck = [];
 
-    for (suit of SuitList) {
-      for (rank of RankList) {
+    for (let suit of SuitList) {
+      for (let rank of RankList) {
         this.deck.push(
           new Card(CardRanks.getValue(rank), CardSuits.getValue(suit))
         );
       }
     }
     if (jokers) {
-      for (color of ColorList) {
+      for (let color of ColorList) {
         this.deck.push(
           new Card(
             CardRanks.getValue("joker"),
@@ -147,7 +155,34 @@ class Deck {
     }
   }
 
-  shuffle() {}
+  *[Symbol.iterator]() {
+    for (let card of this.deck) {
+      yield card;
+    }
+
+    return this;
+  }
+
+  shuffle() {
+    for (let i = this.deck.length; i > 1; i--) {
+      let curSwapIndex = randBetween(0, i);
+
+      if (curSwapIndex > 0) {
+        let temp = this.deck[i-1];
+        this.deck[i-1] = this.deck[curSwapIndex];
+        this.deck[curSwapIndex] = temp;
+      }
+    }
+  }
 }
 
 /***** Test code *****/
+let myDeck = new Deck(true);
+// for (let card of myDeck) {
+//   console.log(card.name);
+// }
+myDeck.shuffle();
+for (let card of myDeck) {
+  console.log(card.name);
+}
+
