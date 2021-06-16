@@ -14,6 +14,8 @@ const capitalize = (word) => word[0].toUpperCase() + word.slice(1);
 
 const randBetween = (min, max) => min + Math.floor(Math.random() * (max - min));
 
+const peek = (arr) => arr[arr.length - 1];
+
 /***** TwoWayMap *****/
 class TwoWayMap {
   constructor(forwardMap) {
@@ -178,21 +180,80 @@ class Deck {
       }
     }
   }
+
+  dealOne() {
+    return this.deck.pop();
+  }
+}
+
+class SolitairePile {
+  constructor() {
+    this.cards = [];
+    this.numRevealed = 0;
+  }
+
+  *getFilenames() {
+    for (let i = 0; i < this.cards.length; i++) {
+      if (this.cards.length - i - 1 < this.numRevealed)
+        yield this.cards[i].filename;
+      else yield "red_back.png";
+    }
+
+    return this;
+  }
+
+  addCard(card, revealed = true) {
+    this.cards.push(card);
+
+    if (revealed) this.numRevealed++;
+  }
 }
 
 /***** Test code *****/
 
 const cardDiv = document.getElementById("cards");
-const makeChildCard = (filename) => {
+const makeChildCard = (filename, parent = cardDiv) => {
   let newCardImg = document.createElement("img");
   newCardImg.src = "images/" + filename;
   newCardImg.className = "card";
-  cardDiv.appendChild(newCardImg);
+  parent.appendChild(newCardImg);
 };
 
-let myDeck = new Deck(true);
+// let myDeck = new Deck();
+// myDeck.shuffle();
+// for (let card of myDeck) {
+//   console.log(card.name);
+//   makeChildCard(card.filename);
+// }
+
+let myDeck = new Deck();
 myDeck.shuffle();
-for (let card of myDeck) {
-  console.log(card.name);
-  makeChildCard(card.filename);
+let piles = [];
+
+const deckColumn = document.getElementById("deck-column");
+makeChildCard("red_back.png", deckColumn);
+let dealtPile = [];
+dealtPile.push(myDeck.dealOne());
+makeChildCard(peek(dealtPile).filename, deckColumn);
+
+deckColumn.children[0].onclick = () => {
+  dealtPile.push(myDeck.dealOne());
+  deckColumn.children[1].src = "images/" + peek(dealtPile).filename;
+}
+
+for (let i = 0; i < 7; i++) {
+  let curPile = new SolitairePile();
+  for (let j = 0; j < i; j++) {
+    curPile.addCard(myDeck.dealOne(), false);
+  }
+  curPile.addCard(myDeck.dealOne());
+  piles.push(curPile);
+}
+
+const pilesDiv = document.getElementById("piles");
+for (let i = 0; i < piles.length; i++) {
+  for (let filename of piles[i].getFilenames()) {
+    console.log(filename);
+    makeChildCard(filename, pilesDiv.children[i]);
+  }
 }

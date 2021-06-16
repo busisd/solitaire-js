@@ -2,3 +2,27 @@
   width: 99px;
   height: 151px;
 }
+
+#game-container {
+  display: flex;
+  flex-direction: row;
+}
+
+#deck-column {
+  display: flex;
+  flex-direction: column;
+}
+
+#piles {
+  display: flex;
+  flex-direction: row;
+}
+
+.pile {
+  display: flex;
+  flex-direction: column;
+}
+
+.pile .card:not(:first-child) {
+  margin-top: -100px;
+}
