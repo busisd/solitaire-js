@@ -16,6 +16,8 @@ const randBetween = (min, max) => min + Math.floor(Math.random() * (max - min));
 
 const peek = (arr) => arr[arr.length - 1];
 
+const positionInParent = el => Array.from(el.parentElement.children).indexOf(el);
+
 /***** TwoWayMap *****/
 class TwoWayMap {
   constructor(forwardMap) {
@@ -162,8 +164,8 @@ class Deck {
   }
 
   *[Symbol.iterator]() {
-    for (let card of this.deck) {
-      yield card;
+    for (let i = this.deck.length - 1; i >= 0; i--) {
+      yield this.deck[i];
     }
 
     return this;
@@ -183,6 +185,16 @@ class Deck {
 
   dealOne() {
     return this.deck.pop();
+  }
+
+  get size() {
+    return this.deck.length;
+  }
+
+  addCards(...cards) {
+    for (let card of cards) {
+      this.deck.push(card);
+    }
   }
 }
 
@@ -207,15 +219,22 @@ class SolitairePile {
 
     if (revealed) this.numRevealed++;
   }
+
+  removeCard(card) {
+    if (this.revealed > 1) this.revealed--;
+
+    return this.cards.pop(card);
+  }
 }
 
 /***** Test code *****/
 
 const cardDiv = document.getElementById("cards");
-const makeChildCard = (filename, parent = cardDiv) => {
+const makeChildCard = (filename, parent = cardDiv, draggable = false) => {
   let newCardImg = document.createElement("img");
   newCardImg.src = "images/" + filename;
   newCardImg.className = "card";
+  newCardImg.setAttribute("draggable", draggable.toString());
   parent.appendChild(newCardImg);
 };
 
@@ -233,13 +252,26 @@ let piles = [];
 const deckColumn = document.getElementById("deck-column");
 makeChildCard("red_back.png", deckColumn);
 let dealtPile = [];
-dealtPile.push(myDeck.dealOne());
-makeChildCard(peek(dealtPile).filename, deckColumn);
+makeChildCard("placeholder.png", deckColumn);
 
 deckColumn.children[0].onclick = () => {
-  dealtPile.push(myDeck.dealOne());
-  deckColumn.children[1].src = "images/" + peek(dealtPile).filename;
-}
+  if (myDeck.size === 0) {
+    if (dealtPile.length > 0) {
+      dealtPile.reverse();
+      myDeck.addCards(...dealtPile);
+      dealtPile = [];
+      deckColumn.children[0].src = "images/red_back.png";
+      deckColumn.children[1].src = "images/placeholder.png";
+    }
+  } else {
+    dealtPile.push(myDeck.dealOne());
+    deckColumn.children[1].src = "images/" + peek(dealtPile).filename;
+  }
+
+  if (myDeck.size === 0) {
+    deckColumn.children[0].src = "images/redo.png";
+  }
+};
 
 for (let i = 0; i < 7; i++) {
   let curPile = new SolitairePile();
@@ -253,7 +285,31 @@ for (let i = 0; i < 7; i++) {
 const pilesDiv = document.getElementById("piles");
 for (let i = 0; i < piles.length; i++) {
   for (let filename of piles[i].getFilenames()) {
-    console.log(filename);
+    // console.log(filename);
     makeChildCard(filename, pilesDiv.children[i]);
   }
+
+  peek(pilesDiv.children[i].children).setAttribute("draggable", "true");
 }
+
+/***** Drag and Drop *****/
+let dragged = null;
+
+document.addEventListener("dragstart", (e) => {
+  console.log("dragstart", e.target.src);
+  dragged = e.target;
+});
+
+document.addEventListener("dragover", (e) => e.preventDefault());
+
+document.addEventListener("drop", (e) => {
+  e.preventDefault();
+  console.log("drop", e);
+
+  if (e.target.parentElement.classList.contains("pile")) {
+    let sourcePileIndex = positionInParent(dragged);
+    let destPileIndex = positionInParent(e.target);
+    piles[destPileIndex].addCard(piles[sourcePileIndex].removeCard(), true);
+    makeChildCard(peek(piles[destPileIndex].cards).filename, pilesDiv.children[destPileIndex]);
+  }
+});
