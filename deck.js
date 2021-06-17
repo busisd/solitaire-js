@@ -16,7 +16,10 @@ const randBetween = (min, max) => min + Math.floor(Math.random() * (max - min));
 
 const peek = (arr) => arr[arr.length - 1];
 
-const positionInParent = el => Array.from(el.parentElement.children).indexOf(el);
+const positionInParent = (el) =>
+  Array.from(el.parentElement.children).indexOf(el);
+
+const addPath = (str) => "images/" + str;
 
 /***** TwoWayMap *****/
 class TwoWayMap {
@@ -199,16 +202,21 @@ class Deck {
 }
 
 class SolitairePile {
-  constructor() {
+  constructor(pileDiv) {
     this.cards = [];
     this.numRevealed = 0;
+    this.pileDiv = pileDiv;
+  }
+
+  filenameAtIndex(index) {
+    if (this.cards.length - index - 1 < this.numRevealed)
+      return this.cards[index].filename;
+    else return "red_back.png";
   }
 
   *getFilenames() {
     for (let i = 0; i < this.cards.length; i++) {
-      if (this.cards.length - i - 1 < this.numRevealed)
-        yield this.cards[i].filename;
-      else yield "red_back.png";
+      yield this.filenameAtIndex(i);
     }
 
     return this;
@@ -221,9 +229,34 @@ class SolitairePile {
   }
 
   removeCard(card) {
-    if (this.revealed > 1) this.revealed--;
+    if (this.numRevealed > 1) this.numRevealed--;
 
     return this.cards.pop(card);
+  }
+
+  updateDiv() {
+    while (this.pileDiv.children.length > this.cards.length) {
+      this.pileDiv.removeChild(this.pileDiv.lastChild);
+    }
+
+    if (this.cards.length === 0) {
+      makeChildCard("placeholder.png", this.pileDiv);
+    }
+
+    for (let i = 0; i < this.cards.length; i++) {
+      let curChild;
+
+      if (i < this.pileDiv.children.length) {
+        curChild = this.pileDiv.children[i];
+        curChild.src = addPath(this.filenameAtIndex(i));
+      } else {
+        curChild = makeChildCard(this.filenameAtIndex(i), this.pileDiv);
+      }
+    }
+
+    for (let i = 0; i < this.cards.length; i++) {
+      this.pileDiv.children[i].setAttribute("draggable", (i === this.pileDiv.children.length - 1).toString());
+    }
   }
 }
 
@@ -232,10 +265,11 @@ class SolitairePile {
 const cardDiv = document.getElementById("cards");
 const makeChildCard = (filename, parent = cardDiv, draggable = false) => {
   let newCardImg = document.createElement("img");
-  newCardImg.src = "images/" + filename;
+  newCardImg.src = addPath(filename);
   newCardImg.className = "card";
   newCardImg.setAttribute("draggable", draggable.toString());
   parent.appendChild(newCardImg);
+  return newCardImg;
 };
 
 // let myDeck = new Deck();
@@ -260,43 +294,45 @@ deckColumn.children[0].onclick = () => {
       dealtPile.reverse();
       myDeck.addCards(...dealtPile);
       dealtPile = [];
-      deckColumn.children[0].src = "images/red_back.png";
-      deckColumn.children[1].src = "images/placeholder.png";
+      deckColumn.children[0].src = addPath("red_back.png");
+      deckColumn.children[1].src = addPath("placeholder.png");
     }
   } else {
     dealtPile.push(myDeck.dealOne());
-    deckColumn.children[1].src = "images/" + peek(dealtPile).filename;
+    deckColumn.children[1].src = addPath(peek(dealtPile).filename);
   }
 
   if (myDeck.size === 0) {
-    deckColumn.children[0].src = "images/redo.png";
+    deckColumn.children[0].src = addPath("redo.png");
   }
 };
 
+const pilesDiv = document.getElementById("piles");
 for (let i = 0; i < 7; i++) {
-  let curPile = new SolitairePile();
+  let curPile = new SolitairePile(pilesDiv.children[i]);
   for (let j = 0; j < i; j++) {
     curPile.addCard(myDeck.dealOne(), false);
   }
   curPile.addCard(myDeck.dealOne());
+
   piles.push(curPile);
+  curPile.updateDiv();
 }
 
-const pilesDiv = document.getElementById("piles");
-for (let i = 0; i < piles.length; i++) {
-  for (let filename of piles[i].getFilenames()) {
-    // console.log(filename);
-    makeChildCard(filename, pilesDiv.children[i]);
-  }
+// for (let i = 0; i < piles.length; i++) {
+//   for (let filename of piles[i].getFilenames()) {
+//     // console.log(filename);
+//     makeChildCard(filename, pilesDiv.children[i]);
+//   }
 
-  peek(pilesDiv.children[i].children).setAttribute("draggable", "true");
-}
+//   peek(pilesDiv.children[i].children).setAttribute("draggable", "true");
+// }
 
 /***** Drag and Drop *****/
 let dragged = null;
 
 document.addEventListener("dragstart", (e) => {
-  console.log("dragstart", e.target.src);
+  // console.log("dragstart", e.target.src);
   dragged = e.target;
 });
 
@@ -304,12 +340,24 @@ document.addEventListener("dragover", (e) => e.preventDefault());
 
 document.addEventListener("drop", (e) => {
   e.preventDefault();
-  console.log("drop", e);
+  // console.log("drop", e);
 
-  if (e.target.parentElement.classList.contains("pile")) {
-    let sourcePileIndex = positionInParent(dragged);
-    let destPileIndex = positionInParent(e.target);
+  if (e.target.parentElement.classList.contains("pile") && dragged.parentElement.classList.contains("pile")) {
+    let sourcePileIndex = positionInParent(dragged.parentElement);
+    let destPileIndex = positionInParent(e.target.parentElement);
+
+    if (sourcePileIndex === destPileIndex) return;
+
+    console.log(`moving from pile ${sourcePileIndex} to ${destPileIndex}`);
+
     piles[destPileIndex].addCard(piles[sourcePileIndex].removeCard(), true);
-    makeChildCard(peek(piles[destPileIndex].cards).filename, pilesDiv.children[destPileIndex]);
+
+    piles[sourcePileIndex].updateDiv();
+    piles[destPileIndex].updateDiv();
+
+    // makeChildCard(
+    //   peek(piles[destPileIndex].cards).filename,
+    //   pilesDiv.children[destPileIndex]
+    // );
   }
 });

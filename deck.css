@@ -24,5 +24,24 @@
 }
 
 .pile .card:not(:first-child) {
-  margin-top: -100px;
+  margin-top: -110px;
+}
+
+.pile2 {
+  display: flex;
+  flex-direction: column;
+  width: 100px;
+  margin-top: -41px;
+}
+
+.pile2 div {
+  height: 100px;
+  position: relative;
+  top: 41px;
+}
+
+.card2{ 
+  width: 100px;
+  position: absolute;
+  top: 0px;
 }
