@@ -30,18 +30,17 @@
 .pile2 {
   display: flex;
   flex-direction: column;
-  width: 100px;
+  width: 99px;
   margin-top: -41px;
 }
 
 .pile2 div {
-  height: 100px;
+  height: 99px;
   position: relative;
   top: 41px;
 }
 
-.card2{ 
-  width: 100px;
+.pile2 .card {
   position: absolute;
   top: 0px;
 }

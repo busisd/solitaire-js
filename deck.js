@@ -21,6 +21,39 @@ const positionInParent = (el) =>
 
 const addPath = (str) => "images/" + str;
 
+const removeAllChildren = (el) => {
+  while (el.children.length > 0) el.removeChild(el.firstChild);
+};
+
+const makeChildCard = (filename, parent, draggable = false) => {
+  let newCardImg = document.createElement("img");
+  newCardImg.src = addPath(filename);
+  newCardImg.className = "card";
+  newCardImg.setAttribute("draggable", draggable.toString());
+  parent.appendChild(newCardImg);
+  return newCardImg;
+};
+
+const makeChildCardDiv = (
+  filename,
+  parent,
+  pileNum,
+  indexInPile,
+  draggable = false
+) => {
+  let newCardDiv = document.createElement("div");
+  newCardDiv.setAttribute("draggable", draggable.toString());
+  let newCardImg = makeChildCard(filename, newCardDiv);
+  parent.appendChild(newCardDiv);
+
+  newCardImg.pileNum = pileNum;
+  newCardImg.indexInPile = indexInPile;
+  newCardDiv.pileNum = pileNum;
+  newCardDiv.indexInPile = indexInPile;
+
+  return newCardDiv;
+};
+
 /***** TwoWayMap *****/
 class TwoWayMap {
   constructor(forwardMap) {
@@ -202,9 +235,10 @@ class Deck {
 }
 
 class SolitairePile {
-  constructor(pileDiv) {
+  constructor(pileNum, pileDiv) {
     this.cards = [];
     this.numRevealed = 0;
+    this.pileNum = pileNum;
     this.pileDiv = pileDiv;
   }
 
@@ -212,6 +246,10 @@ class SolitairePile {
     if (this.cards.length - index - 1 < this.numRevealed)
       return this.cards[index].filename;
     else return "red_back.png";
+  }
+
+  visibleAtIndex(index) {
+    return this.cards.length - index - 1 < this.numRevealed;
   }
 
   *getFilenames() {
@@ -228,54 +266,60 @@ class SolitairePile {
     if (revealed) this.numRevealed++;
   }
 
-  removeCard(card) {
+  addCards(cardArr, revealed = true) {
+    for (let card of cardArr) this.cards.push(card);
+
+    if (revealed) this.numRevealed += cardArr.length;
+  }
+
+  removeCard() {
     if (this.numRevealed > 1) this.numRevealed--;
 
-    return this.cards.pop(card);
+    return this.cards.pop();
+  }
+
+  removeCards(numToRemove) {
+    if (numToRemove >= this.cards.length) {
+      let cardsToReturn = this.cards;
+      this.cards = [];
+      this.numRevealed = 0;
+      return cardsToReturn;
+    }
+
+    let cardsToReturn = this.cards.slice(this.cards.length - numToRemove);
+    this.cards = this.cards.slice(0, this.cards.length - numToRemove);
+    this.numRevealed = Math.max(this.numRevealed - numToRemove, 1);
+    return cardsToReturn;
   }
 
   updateDiv() {
-    while (this.pileDiv.children.length > this.cards.length) {
-      this.pileDiv.removeChild(this.pileDiv.lastChild);
-    }
+    removeAllChildren(this.pileDiv);
 
     if (this.cards.length === 0) {
-      makeChildCard("placeholder.png", this.pileDiv);
+      makeChildCardDiv("placeholder.png", this.pileDiv, this.pileNum, -1);
+      return;
     }
 
+    let curParent = this.pileDiv;
     for (let i = 0; i < this.cards.length; i++) {
-      let curChild;
-
-      if (i < this.pileDiv.children.length) {
-        curChild = this.pileDiv.children[i];
-        curChild.src = addPath(this.filenameAtIndex(i));
-      } else {
-        curChild = makeChildCard(this.filenameAtIndex(i), this.pileDiv);
-      }
-    }
-
-    for (let i = 0; i < this.cards.length; i++) {
-      this.pileDiv.children[i].setAttribute("draggable", (i === this.pileDiv.children.length - 1).toString());
+      curParent = makeChildCardDiv(
+        this.filenameAtIndex(i),
+        curParent,
+        this.pileNum,
+        i,
+        this.visibleAtIndex(i)
+      );
     }
   }
+
+  get size() {
+    return this.cards.length;
+  }
 }
-
-/***** Test code *****/
-
-const cardDiv = document.getElementById("cards");
-const makeChildCard = (filename, parent = cardDiv, draggable = false) => {
-  let newCardImg = document.createElement("img");
-  newCardImg.src = addPath(filename);
-  newCardImg.className = "card";
-  newCardImg.setAttribute("draggable", draggable.toString());
-  parent.appendChild(newCardImg);
-  return newCardImg;
-};
 
 // let myDeck = new Deck();
 // myDeck.shuffle();
 // for (let card of myDeck) {
-//   console.log(card.name);
 //   makeChildCard(card.filename);
 // }
 
@@ -309,7 +353,7 @@ deckColumn.children[0].onclick = () => {
 
 const pilesDiv = document.getElementById("piles");
 for (let i = 0; i < 7; i++) {
-  let curPile = new SolitairePile(pilesDiv.children[i]);
+  let curPile = new SolitairePile(i, pilesDiv.children[i]);
   for (let j = 0; j < i; j++) {
     curPile.addCard(myDeck.dealOne(), false);
   }
@@ -321,7 +365,6 @@ for (let i = 0; i < 7; i++) {
 
 // for (let i = 0; i < piles.length; i++) {
 //   for (let filename of piles[i].getFilenames()) {
-//     // console.log(filename);
 //     makeChildCard(filename, pilesDiv.children[i]);
 //   }
 
@@ -332,7 +375,6 @@ for (let i = 0; i < 7; i++) {
 let dragged = null;
 
 document.addEventListener("dragstart", (e) => {
-  // console.log("dragstart", e.target.src);
   dragged = e.target;
 });
 
@@ -340,24 +382,24 @@ document.addEventListener("dragover", (e) => e.preventDefault());
 
 document.addEventListener("drop", (e) => {
   e.preventDefault();
-  // console.log("drop", e);
 
-  if (e.target.parentElement.classList.contains("pile") && dragged.parentElement.classList.contains("pile")) {
-    let sourcePileIndex = positionInParent(dragged.parentElement);
-    let destPileIndex = positionInParent(e.target.parentElement);
+  // console.log("drop - dragged: ", dragged, "dropped: ", e.target);
+  if ("pileNum" in e.target && "pileNum" in dragged) {
+    let sourcePileIndex = dragged.pileNum;
+    let destPileIndex = e.target.pileNum;
 
     if (sourcePileIndex === destPileIndex) return;
 
-    console.log(`moving from pile ${sourcePileIndex} to ${destPileIndex}`);
+    let sourceCardIndex = dragged.indexInPile;
+    // console.log(`moving from pile ${sourcePileIndex} at index ${sourceCardIndex} to pile ${destPileIndex}`);
 
-    piles[destPileIndex].addCard(piles[sourcePileIndex].removeCard(), true);
+    piles[destPileIndex].addCards(
+      piles[sourcePileIndex].removeCards(
+        piles[sourcePileIndex].size - sourceCardIndex
+      )
+    );
 
     piles[sourcePileIndex].updateDiv();
     piles[destPileIndex].updateDiv();
-
-    // makeChildCard(
-    //   peek(piles[destPileIndex].cards).filename,
-    //   pilesDiv.children[destPileIndex]
-    // );
   }
 });
