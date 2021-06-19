@@ -264,13 +264,14 @@ class Deck {
 }
 
 class SolitairePile {
-  constructor(pileNum, pileDiv, flat = false, acceptanceRule = () => true) {
+  constructor(pileNum, pileDiv, flat = false, acceptanceRule = () => true, placeholder = "placeholder.png") {
     this.cards = [];
     this.numRevealed = 0;
     this.pileNum = pileNum;
     this.pileDiv = pileDiv;
     this.flat = flat;
     this.acceptanceRule = acceptanceRule;
+    this.placeholder = placeholder;
   }
 
   filenameAtIndex(index) {
@@ -342,12 +343,12 @@ class SolitairePile {
   updateDiv() {
     removeAllChildren(this.pileDiv);
 
-    if (!this.flat) {
-      if (this.cards.length === 0) {
-        makeChildCardDiv("placeholder.png", this.pileDiv, this.pileNum, -1);
-        return;
-      }
+    if (this.cards.length === 0) {
+      makeChildCardDiv(this.placeholder, this.pileDiv, this.pileNum, -1);
+      return;
+    }
 
+    if (!this.flat) {
       let curParent = this.pileDiv;
       for (let i = 0; i < this.cards.length; i++) {
         curParent = makeChildCardDiv(
@@ -359,11 +360,6 @@ class SolitairePile {
         );
       }
     } else {
-      if (this.cards.length === 0) {
-        makeChildCardDiv("placeholder.png", this.pileDiv, this.pileNum, -1);
-        return;
-      }
-
       makeChildCardDiv(
         this.filenameAtIndex(this.cards.length - 1),
         this.pileDiv,
@@ -414,25 +410,29 @@ let diamondsPile = new SolitairePile(
   PileIds.getValue("diamondsPile"),
   document.getElementById("diamonds-pile"),
   true,
-  suitPileValidate("diamonds")
+  suitPileValidate("diamonds"),
+  "placeholder_diamonds.png"
 );
 let clubsPile = new SolitairePile(
   PileIds.getValue("clubsPile"),
   document.getElementById("clubs-pile"),
   true,
-  suitPileValidate("clubs")
+  suitPileValidate("clubs"),
+  "placeholder_clubs.png"
 );
 let spadesPile = new SolitairePile(
   PileIds.getValue("spadesPile"),
   document.getElementById("spades-pile"),
   true,
-  suitPileValidate("spades")
+  suitPileValidate("spades"),
+  "placeholder_spades.png"
 );
 let heartsPile = new SolitairePile(
   PileIds.getValue("heartsPile"),
   document.getElementById("hearts-pile"),
   true,
-  suitPileValidate("hearts")
+  suitPileValidate("hearts"),
+  "placeholder_hearts.png"
 );
 diamondsPile.updateDiv();
 clubsPile.updateDiv();
