@@ -18,6 +18,11 @@
   flex-direction: row;
 }
 
+#victory-piles {
+  display: flex;
+  flex-direction: column;
+}
+
 .pile {
   display: flex;
   flex-direction: column;

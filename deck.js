@@ -25,6 +25,8 @@ const removeAllChildren = (el) => {
   while (el.children.length > 0) el.removeChild(el.firstChild);
 };
 
+const oppositeColors = (c1, c2) => c1 !== c2;
+
 const makeChildCard = (filename, parent, draggable = false) => {
   let newCardImg = document.createElement("img");
   newCardImg.src = addPath(filename);
@@ -67,6 +69,14 @@ class TwoWayMap {
 
   getKey(value) {
     return this.inverseMap[value];
+  }
+
+  hasKey(key) {
+    return key in this.forwardMap;
+  }
+
+  hasValue(value) {
+    return value in this.inverseMap;
   }
 
   *[Symbol.iterator]() {
@@ -124,6 +134,25 @@ const CardRanks = new TwoWayMap({
   queen: 12,
   king: 13,
 });
+
+const PileIds = new TwoWayMap({
+  pile0: 0,
+  pile1: 1,
+  pile2: 2,
+  pile3: 3,
+  pile4: 4,
+  pile5: 5,
+  pile6: 6,
+  dealtPile: 7,
+  diamondsPile: 8,
+  clubsPile: 9,
+  spadesPile: 10,
+  heartsPile: 11,
+});
+
+const validateSourcePile = (id) => id >= 0 && id <= 11;
+const validateDestPile = (id) =>
+  id >= 0 && id <= 11 && id != PileIds.getValue("dealtPile");
 
 /***** Card class *****/
 class Card {
@@ -235,11 +264,13 @@ class Deck {
 }
 
 class SolitairePile {
-  constructor(pileNum, pileDiv) {
+  constructor(pileNum, pileDiv, flat = false, acceptanceRule = () => true) {
     this.cards = [];
     this.numRevealed = 0;
     this.pileNum = pileNum;
     this.pileDiv = pileDiv;
+    this.flat = flat;
+    this.acceptanceRule = acceptanceRule;
   }
 
   filenameAtIndex(index) {
@@ -258,6 +289,22 @@ class SolitairePile {
     }
 
     return this;
+  }
+
+  shouldAcceptCards(cardArr) {
+    return this.acceptanceRule(cardArr, this.peekCard());
+  }
+
+  peekCard(index = this.cards.length - 1) {
+    if (this.cards.length === 0) return null;
+
+    return this.cards[index];
+  }
+
+  peekCards(index) {
+    if (this.cards.length === 0) return null;
+
+    return this.cards.slice(index);
   }
 
   addCard(card, revealed = true) {
@@ -295,19 +342,34 @@ class SolitairePile {
   updateDiv() {
     removeAllChildren(this.pileDiv);
 
-    if (this.cards.length === 0) {
-      makeChildCardDiv("placeholder.png", this.pileDiv, this.pileNum, -1);
-      return;
-    }
+    if (!this.flat) {
+      if (this.cards.length === 0) {
+        makeChildCardDiv("placeholder.png", this.pileDiv, this.pileNum, -1);
+        return;
+      }
 
-    let curParent = this.pileDiv;
-    for (let i = 0; i < this.cards.length; i++) {
-      curParent = makeChildCardDiv(
-        this.filenameAtIndex(i),
-        curParent,
+      let curParent = this.pileDiv;
+      for (let i = 0; i < this.cards.length; i++) {
+        curParent = makeChildCardDiv(
+          this.filenameAtIndex(i),
+          curParent,
+          this.pileNum,
+          i,
+          this.visibleAtIndex(i)
+        );
+      }
+    } else {
+      if (this.cards.length === 0) {
+        makeChildCardDiv("placeholder.png", this.pileDiv, this.pileNum, -1);
+        return;
+      }
+
+      makeChildCardDiv(
+        this.filenameAtIndex(this.cards.length - 1),
+        this.pileDiv,
         this.pileNum,
-        i,
-        this.visibleAtIndex(i)
+        this.cards.length - 1,
+        true
       );
     }
   }
@@ -327,33 +389,78 @@ let myDeck = new Deck();
 myDeck.shuffle();
 let piles = [];
 
-const deckColumn = document.getElementById("deck-column");
-makeChildCard("red_back.png", deckColumn);
-let dealtPile = [];
-makeChildCard("placeholder.png", deckColumn);
+const pileValidate = (cards, topCard) =>
+  (topCard === null && cards[0].rank === CardRanks.getValue("king")) ||
+  (topCard !== null && cards[0].rank === topCard.rank - 1 && oppositeColors(cards[0].color, topCard.color));
 
-deckColumn.children[0].onclick = () => {
+const suitPileValidate = (suit) => (cards, topCard) =>
+  cards.length === 1 &&
+  cards[0].suit === CardSuits.getValue(suit) &&
+  ((topCard === null && cards[0].rank === CardRanks.getValue("ace")) ||
+    (topCard !== null && cards[0].rank === topCard.rank + 1));
+
+const deckDiv = document.getElementById("deck");
+const dealtPileDiv = document.getElementById("dealt-pile");
+makeChildCard("red_back.png", deckDiv);
+let dealtPile = new SolitairePile(
+  PileIds.getValue("dealtPile"),
+  dealtPileDiv,
+  true,
+  () => false
+);
+dealtPile.updateDiv();
+
+let diamondsPile = new SolitairePile(
+  PileIds.getValue("diamondsPile"),
+  document.getElementById("diamonds-pile"),
+  true,
+  suitPileValidate("diamonds")
+);
+let clubsPile = new SolitairePile(
+  PileIds.getValue("clubsPile"),
+  document.getElementById("clubs-pile"),
+  true,
+  suitPileValidate("clubs")
+);
+let spadesPile = new SolitairePile(
+  PileIds.getValue("spadesPile"),
+  document.getElementById("spades-pile"),
+  true,
+  suitPileValidate("spades")
+);
+let heartsPile = new SolitairePile(
+  PileIds.getValue("heartsPile"),
+  document.getElementById("hearts-pile"),
+  true,
+  suitPileValidate("hearts")
+);
+diamondsPile.updateDiv();
+clubsPile.updateDiv();
+spadesPile.updateDiv();
+heartsPile.updateDiv();
+
+deckDiv.onclick = () => {
   if (myDeck.size === 0) {
-    if (dealtPile.length > 0) {
-      dealtPile.reverse();
-      myDeck.addCards(...dealtPile);
-      dealtPile = [];
-      deckColumn.children[0].src = addPath("red_back.png");
-      deckColumn.children[1].src = addPath("placeholder.png");
+    if (dealtPile.size > 0) {
+      let dealtPileCards = dealtPile.removeCards(dealtPile.size);
+      dealtPileCards.reverse();
+      myDeck.addCards(...dealtPileCards);
+      deckDiv.children[0].src = addPath("red_back.png");
+      dealtPile.updateDiv();
     }
   } else {
-    dealtPile.push(myDeck.dealOne());
-    deckColumn.children[1].src = addPath(peek(dealtPile).filename);
+    dealtPile.addCard(myDeck.dealOne());
+    dealtPile.updateDiv();
   }
 
   if (myDeck.size === 0) {
-    deckColumn.children[0].src = addPath("redo.png");
+    deckDiv.children[0].src = addPath("redo.png");
   }
 };
 
 const pilesDiv = document.getElementById("piles");
 for (let i = 0; i < 7; i++) {
-  let curPile = new SolitairePile(i, pilesDiv.children[i]);
+  let curPile = new SolitairePile(i, pilesDiv.children[i], false, pileValidate);
   for (let j = 0; j < i; j++) {
     curPile.addCard(myDeck.dealOne(), false);
   }
@@ -362,6 +469,11 @@ for (let i = 0; i < 7; i++) {
   piles.push(curPile);
   curPile.updateDiv();
 }
+piles.push(dealtPile);
+piles.push(diamondsPile);
+piles.push(clubsPile);
+piles.push(spadesPile);
+piles.push(heartsPile);
 
 // for (let i = 0; i < piles.length; i++) {
 //   for (let filename of piles[i].getFilenames()) {
@@ -389,9 +501,14 @@ document.addEventListener("drop", (e) => {
     let destPileIndex = e.target.pileNum;
 
     if (sourcePileIndex === destPileIndex) return;
+    // if (!validateSourcePile(sourcePileIndex)) return;
+    // if (!validateDestPile(destPileIndex)) return;
 
     let sourceCardIndex = dragged.indexInPile;
     // console.log(`moving from pile ${sourcePileIndex} at index ${sourceCardIndex} to pile ${destPileIndex}`);
+
+    let cardsToMove = piles[sourcePileIndex].peekCards(sourceCardIndex);
+    if (!piles[destPileIndex].shouldAcceptCards(cardsToMove)) return;
 
     piles[destPileIndex].addCards(
       piles[sourcePileIndex].removeCards(
